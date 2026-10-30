@@ -5,4 +5,8 @@
   <Folder Name="/tests/">
     <Project Path="tests/SshKeyManager.Tests/SshKeyManager.Tests.csproj" />
   </Folder>
+  <Folder Name="/Workflows/">
+    <File Path=".github/workflows/ci.yml" />
+    <File Path=".github/workflows/Release.yml" />
+  </Folder>
 </Solution>

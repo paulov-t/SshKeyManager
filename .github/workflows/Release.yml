@@ -4,10 +4,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # required to create the draft GitHub release
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  
   test:
     name: Test (${{ matrix.os }})
     strategy:
@@ -51,97 +54,105 @@ jobs:
       - name: Test
         run: dotnet test --no-build -c Release
 
+  # One version for every artifact in the run. Matrix legs cannot reliably share
+  # outputs, so calculate it once here instead of once per runner.
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Calculate version
+        id: version
+        run: echo "value=$(date -u +%y.%m.%d.%H%M)" >> "$GITHUB_OUTPUT"
+
   build:
-    needs: test
-    name: Publish (${{ matrix.os }})
+    needs: [test, version]
+    name: Publish (${{ matrix.rid }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # runner label        runtime identifier
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
     runs-on: ${{ matrix.os }}
 
     env:
       DeploymentDirectory: deployment
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v7
-            
-    - name: Setup .NET 10.0
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: '10.0.x'
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Get build date
-      id: build
-      shell: pwsh
-      run: |
-        $CurrentTime = Get-Date -Format 'yyMM'
-        $BuildTime = Get-Date -Format 'ddHH'
-        Write-Output "NOW=$CurrentTime" >> $env:GITHUB_OUTPUT
-        Write-Output "VERSION=$BuildTime" >> $env:GITHUB_OUTPUT 
+      - name: Setup .NET 10.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore -p:EnableWindowsTargeting=true
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Install Avalonia
-      run: dotnet new install Avalonia.Templates
+      - name: Publish
+        run: >
+          dotnet publish src/SshKeyManager/SshKeyManager.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ needs.version.outputs.value }}
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o ${{ env.DeploymentDirectory }}/${{ matrix.rid }}
 
-    - name: Build Published FMT
-      run: dotnet publish src/SshKeyManager/SshKeyManager.csproj -c Release -r ${{ matrix.os }} -p:EnableWindowsTargeting=true -p:BuildNumber=${{ steps.build.outputs.NOW }} -p:RevisionNumber=${{ steps.build.outputs.VERSION }} -o ${{ env.DeploymentDirectory }}/SshKeyManager
-
-    - name: Upload Artifact
-      id: artifact-upload
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.os }}
-        path: ${{ env.DeploymentDirectory }}
-        if-no-files-found: error
-        retention-days: 1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}
+          path: |
+            ${{ env.DeploymentDirectory }}/${{ matrix.rid }}/**
+            !${{ env.DeploymentDirectory }}/${{ matrix.rid }}/**/*.pdb
+          if-no-files-found: error
+          retention-days: 1
 
   release:
-    needs: build
-    name: Deploy (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    needs: [build, version]
+    name: Release
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Get Windows Artifact
+      - name: Download Windows build
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.os }}
-          path: SshKeyManager
+          name: win-x64
+          path: artifacts/win-x64
 
-      ## The set-output is deprecated but my small brain doesnt know why the new GITHUB_OUTPUT doesn't work 
-      - name: Get version from DLL
-        id: extract-version
-        run: |
-          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("SshKeyManager\\SshKeyManager\\SshKeyManager.exe").ProductVersion
-          echo "::set-output name=VERSION::$version"
-          echo "{VERSION}={$version}" >> $GITHUB_OUTPUT
+      - name: Download Linux build
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x64
+          path: artifacts/linux-x64
 
-      - name: Delete pdb
+      - name: Package
         run: |
-          cd FMT
-          ls *.pdb -Recurse | foreach {rm $_}
-          cd ..
+          set -euo pipefail
+          VERSION="${{ needs.version.outputs.value }}"
 
-      - name: Zip Artifact
-        run: |
-          cd FMT
-          Get-ChildItem -Path "" -Recurse
-          $currentPath=$pwd.Path
-          Compress-Archive -Path $currentPath -DestinationPath ../SshKeyManager-${{ steps.extract-version.outputs.VERSION }}.zip
-          cd ..
-                              
-      - name: Generate Release Draft
+          (cd artifacts/win-x64 && zip -r "../SshKeyManager-${VERSION}-win-x64.zip" .)
+
+          # Artifact upload does not preserve the executable bit.
+          chmod +x artifacts/linux-x64/SshKeyManager
+          tar -czf "artifacts/SshKeyManager-${VERSION}-linux-x64.tar.gz" -C artifacts/linux-x64 .
+
+      - name: Generate release draft
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           generate_release_notes: true
+          tag_name: v${{ needs.version.outputs.value }}
           files: |
-            SshKeyManager-${{ steps.extract-version.outputs.VERSION }}.zip
-          tag_name: FMT-${{ steps.extract-version.outputs.VERSION }}
+            artifacts/SshKeyManager-${{ needs.version.outputs.value }}-win-x64.zip
+            artifacts/SshKeyManager-${{ needs.version.outputs.value }}-linux-x64.tar.gz
