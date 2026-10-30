@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SshKeyManager.Views.RawConfigWindow"
+        Icon="/Assets/app.ico"
+        Width="840" Height="640"
+        MinWidth="600" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource CardBrush}"
+        Title="Edit SSH config">
+    <Grid Margin="20" RowDefinitions="Auto,*,Auto">
+        <StackPanel Spacing="4">
+            <TextBlock x:Name="HeadingText" Classes="h1"/>
+            <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                       Text="Written to ~/.ssh/config. A timestamped backup of the current file is created automatically before it is replaced."/>
+        </StackPanel>
+
+        <TextBox x:Name="Editor"
+                 Grid.Row="1"
+                 Margin="0,14,0,14"
+                 AcceptsReturn="True"
+                 TextWrapping="NoWrap"
+                 FontFamily="Cascadia Mono,Consolas,monospace"
+                 FontSize="12"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+            <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                       Text="Tip: Host blocks start at column 0, directives are indented with four spaces."/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Classes="ghost" Content="Cancel" Click="OnCancel" IsCancel="True"/>
+                <Button Classes="primary" Content="Save config" Click="OnSave" IsDefault="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,419 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SshKeyManager.ViewModels"
+        xmlns:models="using:SshKeyManager.Models"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="SshKeyManager.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/app.ico"
+        Title="SSH Key Manager"
+        Width="1200" Height="800"
+        MinWidth="980" MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+        <!-- Header -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource HeaderBackgroundBrush}"
+                BorderBrush="{DynamicResource CardBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="24,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource AccentBrush}">
+                        <PathIcon Width="22" Height="22" Foreground="White"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="M12.65,10C11.83,7.67 9.61,6 7,6A6,6 0 0,0 1,12A6,6 0 0,0 7,18C9.61,18 11.83,16.33 12.65,14H17V18H21V14H23V10H12.65M7,16A4,4 0 0,1 3,12A4,4 0 0,1 7,8A4,4 0 0,1 11,12A4,4 0 0,1 7,16Z"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="SSH Key Manager" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding SshDirectory}" Classes="muted" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Classes="chip" ToolTip.Tip="{Binding AgentTooltip}" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding AgentRunning}"/>
+                            <Ellipse Width="8" Height="8" Fill="{DynamicResource DangerBrush}" IsVisible="{Binding !AgentRunning}"/>
+                            <TextBlock Text="{Binding AgentStatusText}" FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Classes="ghost" Content="Start agent" Command="{Binding StartAgentCommand}"
+                            IsVisible="{Binding AgentWarning}" ToolTip.Tip="Start the OpenSSH Authentication Agent service"/>
+                    <Button Classes="ghost" Content="{Binding ThemeLabel}" Command="{Binding ToggleThemeCommand}"/>
+                    <Button Classes="ghost" Content="Backup" Command="{Binding BackupCommand}"/>
+                    <Button Classes="ghost" Content="Refresh" Command="{Binding RefreshCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Tabs -->
+        <TabControl Grid.Row="1" Margin="16,6,16,0">
+
+            <TabItem Header="Keys">
+                <Grid ColumnDefinitions="360,*" Margin="4,12,4,4">
+
+                    <!-- Key list -->
+                    <Border Classes="card" Padding="14">
+                        <Grid RowDefinitions="Auto,Auto,*">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Your keys" Classes="h2" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Classes="primary" Content="+ New key"
+                                        Command="{Binding NewKeyCommand}" IsEnabled="{Binding !IsBusy}"/>
+                            </Grid>
+
+                            <TextBox Grid.Row="1" Margin="0,12,0,10"
+                                     Text="{Binding SearchText}"
+                                     PlaceholderText="Search by name, comment or fingerprint…"/>
+
+                            <Grid Grid.Row="2">
+                                <ListBox ItemsSource="{Binding FilteredKeys}"
+                                         SelectedItem="{Binding SelectedKey}"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Padding="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:SshKeyInfo">
+                                            <Border Classes="keycard">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                                    <Border Grid.RowSpan="3" Width="34" Height="34" CornerRadius="9"
+                                                            Background="{DynamicResource ChipBackgroundBrush}"
+                                                            VerticalAlignment="Top" Margin="0,2,10,0">
+                                                        <PathIcon Width="17" Height="17"
+                                                                  Foreground="{DynamicResource AccentBrush}"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  Data="M12.65,10C11.83,7.67 9.61,6 7,6A6,6 0 0,0 1,12A6,6 0 0,0 7,18C9.61,18 11.83,16.33 12.65,14H17V18H21V14H23V10H12.65M7,16A4,4 0 0,1 3,12A4,4 0 0,1 7,8A4,4 0 0,1 11,12A4,4 0 0,1 7,16Z"/>
+                                                    </Border>
+
+                                                    <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+
+                                                    <Border Grid.Column="2" Classes="chip accent"
+                                                            IsVisible="{Binding IsInAgent}" VerticalAlignment="Center"
+                                                            ToolTip.Tip="Loaded in ssh-agent">
+                                                        <TextBlock Text="agent" FontSize="10" FontWeight="SemiBold"/>
+                                                    </Border>
+
+                                                    <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                                               Text="{Binding TypeLabel}" Classes="muted" FontSize="12"
+                                                               Margin="0,2,0,0"/>
+
+                                                    <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                                               Text="{Binding FingerprintShort}" Classes="mono caption"
+                                                               Margin="0,2,0,0"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <StackPanel IsVisible="{Binding HasNoKeys}" VerticalAlignment="Center"
+                                            HorizontalAlignment="Center" Spacing="8" Margin="20">
+                                    <TextBlock Text="No keys found" Classes="h2" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Create your first keypair — it will be written to ~/.ssh."
+                                               Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
+                                    <Button Classes="primary" Content="Create a key" Command="{Binding NewKeyCommand}"
+                                            HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Details -->
+                    <Border Grid.Column="1" Classes="card" Margin="14,0,0,0">
+                        <Grid>
+                            <ScrollViewer IsVisible="{Binding HasSelection}">
+                                <StackPanel Margin="22,20" Spacing="18">
+
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="{Binding SelectedKey.Name}" Classes="h1"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding SelectedKey.PrivatePath}" Classes="muted mono"
+                                                       FontSize="11" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <WrapPanel Grid.Column="1" ItemSpacing="6" LineSpacing="6" VerticalAlignment="Top" Margin="12,2,0,0">
+                                            <Border Classes="chip">
+                                                <TextBlock Text="{Binding SelectedKey.TypeLabel}" FontSize="11"/>
+                                            </Border>
+                                            <Border Classes="chip warn" IsVisible="{Binding SelectedKeyIsEncrypted}">
+                                                <TextBlock Text="passphrase" FontSize="11"/>
+                                            </Border>
+                                            <Border Classes="chip accent" IsVisible="{Binding SelectedKeyIsPublicOnly}">
+                                                <TextBlock Text="public only" FontSize="11"/>
+                                            </Border>
+                                        </WrapPanel>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{DynamicResource CardBorderBrush}"/>
+
+                                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                                          VerticalAlignment="Top">
+                                        <TextBlock Grid.Row="0" Text="Comment" Classes="muted"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedKey.Comment}"
+                                                   TextWrapping="Wrap"/>
+
+                                        <TextBlock Grid.Row="1" Text="SHA256" Classes="muted" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedKey.Sha256Fingerprint}"
+                                                   Classes="mono" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+                                        <TextBlock Grid.Row="2" Text="MD5" Classes="muted" Margin="0,6,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedKey.Md5Fingerprint}"
+                                                   Classes="mono" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+                                        <TextBlock Grid.Row="3" Text="Passphrase" Classes="muted" Margin="0,6,0,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedKey.PrivacyLabel}"
+                                                   Margin="0,6,0,0"/>
+
+                                        <TextBlock Grid.Row="4" Text="ssh-agent" Classes="muted" Margin="0,6,0,0"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,6,0,0"
+                                                   Text="Loaded — the key can be used without re-entering its passphrase."
+                                                   IsVisible="{Binding SelectedKeyIsInAgent}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,6,0,0"
+                                                   Text="Not loaded." IsVisible="{Binding !SelectedKeyIsInAgent}"/>
+
+                                        <TextBlock Grid.Row="5" Text="File" Classes="muted" Margin="0,6,0,0"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,6,0,0"
+                                                   Text="{Binding SelectedKey.ModifiedLabel, StringFormat='modified {0}'}"
+                                                   Classes="muted"/>
+                                    </Grid>
+
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Public key" Classes="section"/>
+                                            <Button Grid.Column="1" Classes="ghost" Content="Copy fingerprint"
+                                                    Command="{Binding CopyFingerprintCommand}" FontSize="11"/>
+                                        </Grid>
+                                        <TextBox Text="{Binding SelectedKey.PublicKeyText}" IsReadOnly="True"
+                                                 AcceptsReturn="True" TextWrapping="Wrap" Height="96"
+                                                 FontFamily="Cascadia Mono,Consolas,monospace" FontSize="11"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                 IsVisible="{Binding SelectedKeyHasPublicKey}"/>
+                                        <TextBlock Text="No public key text is available for this key."
+                                                   Classes="muted" IsVisible="{Binding !SelectedKeyHasPublicKey}"/>
+                                    </StackPanel>
+
+                                    <WrapPanel ItemSpacing="8" LineSpacing="8">
+                                        <Button Classes="primary" Content="Copy public key"
+                                                Command="{Binding CopyPublicKeyCommand}"
+                                                IsEnabled="{Binding SelectedKeyHasPublicKey}"/>
+                                        <Button Classes="ghost" Content="Export…"
+                                                Command="{Binding ExportPublicKeyCommand}"
+                                                IsEnabled="{Binding SelectedKeyHasPublicKey}"/>
+                                        <Button Classes="ghost" Content="Add to agent"
+                                                Command="{Binding AddToAgentCommand}"
+                                                IsVisible="{Binding SelectedKeyCanAddToAgent}"/>
+                                        <Button Classes="ghost" Content="Remove from agent"
+                                                Command="{Binding RemoveFromAgentCommand}"
+                                                IsVisible="{Binding SelectedKeyIsInAgent}"/>
+                                        <Button Classes="ghost" Content="Show in folder"
+                                                Command="{Binding ShowInExplorerCommand}"/>
+                                        <Button Classes="danger" Content="Delete key"
+                                                Command="{Binding DeleteKeyCommand}"/>
+                                    </WrapPanel>
+
+                                    <Border Background="{DynamicResource CodeBackgroundBrush}" CornerRadius="10" Padding="14">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Test this key" Classes="section"/>
+                                            <TextBlock Classes="muted" FontSize="12"
+                                                       Text="Connects with ssh -T using only this key, then reports whether the remote accepted it."/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <ComboBox Width="150" ItemsSource="{Binding TestTargets}"
+                                                          SelectedItem="{Binding SelectedTestTarget}"/>
+                                                <TextBox Width="220" IsVisible="{Binding IsCustomTestTarget}"
+                                                         Text="{Binding CustomTestTarget}"
+                                                         PlaceholderText="user@example.com"/>
+                                                <Button Classes="primary" Content="Run test"
+                                                        Command="{Binding TestKeyCommand}"
+                                                        IsEnabled="{Binding CanTestKey}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <StackPanel IsVisible="{Binding HasNoSelection}" VerticalAlignment="Center"
+                                        HorizontalAlignment="Center" Spacing="8">
+                                <TextBlock Text="Select a key" Classes="h2" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Pick a key on the left to inspect, copy or test it."
+                                           Classes="muted"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="SSH config">
+                <Grid ColumnDefinitions="320,*" Margin="4,12,4,4">
+
+                    <Border Classes="card" Padding="14">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Text="Hosts" Classes="h2"/>
+                                    <TextBlock Text="~/.ssh/config" Classes="muted" FontSize="11"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="primary" Content="+ Host"
+                                        Command="{Binding AddHostCommand}"
+                                        IsEnabled="{Binding !ConfigHasUnsupportedBlocks}"/>
+                            </Grid>
+
+                            <Grid Grid.Row="1" Margin="0,12,0,0">
+                                <ListBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding SelectedHost}"
+                                         Background="Transparent" BorderThickness="0" Padding="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:SshHostEntry">
+                                            <Border Classes="keycard">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Summary}" Classes="muted" FontSize="11"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <StackPanel IsVisible="{Binding !HasHosts}" VerticalAlignment="Center"
+                                            HorizontalAlignment="Center" Spacing="8">
+                                    <TextBlock Text="No hosts yet" Classes="h2" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Add a host to point a name at a server and a key."
+                                               Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+                                <Button Classes="ghost" Content="Reload" Command="{Binding ReloadConfigCommand}"/>
+                                <Button Classes="ghost" Content="Raw editor…" Command="{Binding EditRawConfigCommand}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="card" Margin="14,0,0,0">
+                        <Grid>
+                            <StackPanel IsVisible="{Binding ConfigHasUnsupportedBlocks}" Margin="24" Spacing="12"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="This config uses Match blocks" Classes="h2"/>
+                                <TextBlock Classes="muted" TextWrapping="Wrap"
+                                           Text="Match blocks cannot be edited with the form without risking your configuration. Use the raw editor to change this file safely."/>
+                                <Button Classes="primary" Content="Open raw editor" HorizontalAlignment="Left"
+                                        Command="{Binding EditRawConfigCommand}"/>
+                            </StackPanel>
+
+                            <Grid IsVisible="{Binding !ConfigHasUnsupportedBlocks}">
+                                <ScrollViewer IsVisible="{Binding HasSelectedHost}">
+                                    <StackPanel Margin="22,20" Spacing="16">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SelectedHost.DisplayName}" Classes="h1"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding ConfigPath}" Classes="muted mono"
+                                                           FontSize="11" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Classes="chip" VerticalAlignment="Top">
+                                                <TextBlock Text="Host" FontSize="11"/>
+                                            </Border>
+                                        </Grid>
+
+                                        <Border Height="1" Background="{DynamicResource CardBorderBrush}"/>
+
+                                        <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                                              RowSpacing="10">
+                                            <TextBlock Text="Host alias" Classes="muted" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding SelectedHost.Alias}"
+                                                     PlaceholderText="github.com or work-server"/>
+
+                                            <TextBlock Grid.Row="1" Text="Host name" Classes="muted" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedHost.HostName}"
+                                                     PlaceholderText="github.com"/>
+
+                                            <TextBlock Grid.Row="2" Text="User" Classes="muted" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedHost.User}"
+                                                     PlaceholderText="git"/>
+
+                                            <TextBlock Grid.Row="3" Text="Port" Classes="muted" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedHost.Port}"
+                                                     PlaceholderText="22 (leave empty for the default)"/>
+
+                                            <TextBlock Grid.Row="4" Text="Identity file" Classes="muted"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBox Grid.Row="4" Grid.Column="1"
+                                                     Text="{Binding SelectedHost.IdentityFile}"
+                                                     PlaceholderText="~/.ssh/id_ed25519"/>
+
+                                            <TextBlock Grid.Row="5" Text="" Classes="muted"/>
+                                            <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                                <ComboBox Width="230" ItemsSource="{Binding IdentityOptions}"
+                                                          SelectedItem="{Binding SelectedIdentityOption}"
+                                                          PlaceholderText="Pick a key in ~/.ssh"/>
+                                                <Button Classes="ghost" Content="Use" Command="{Binding UseIdentityCommand}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <CheckBox IsChecked="{Binding SelectedHost.IdentitiesOnly}"
+                                                  Content="IdentitiesOnly yes — only use the identity above"/>
+
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Additional directives" Classes="section"/>
+                                            <TextBlock Classes="muted" FontSize="12"
+                                                       Text="Other options for this host are kept verbatim, one per line. For example: ServerAliveInterval 60"/>
+                                            <TextBox Text="{Binding SelectedHost.ExtraOptions}" AcceptsReturn="True"
+                                                     TextWrapping="NoWrap" Height="110"
+                                                     FontFamily="Cascadia Mono,Consolas,monospace" FontSize="11"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                                        </StackPanel>
+
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                <Button Classes="primary" Content="Save config"
+                                                        Command="{Binding SaveConfigCommand}" IsEnabled="{Binding !IsBusy}"/>
+                                                <Button Classes="danger" Content="Remove host"
+                                                        Command="{Binding DeleteHostCommand}"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="Unsaved changes"
+                                                       Classes="muted" VerticalAlignment="Center"
+                                                       IsVisible="{Binding IsConfigDirty}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </ScrollViewer>
+
+                                <StackPanel IsVisible="{Binding !HasSelectedHost}" VerticalAlignment="Center"
+                                            HorizontalAlignment="Center" Spacing="8">
+                                    <TextBlock Text="No host selected" Classes="h2" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Add a host on the left, or open the raw editor for full control."
+                                               Classes="muted"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Status bar -->
+        <Border Grid.Row="2" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,1,0,0"
+                Background="{DynamicResource HeaderBackgroundBrush}" Padding="24,7">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding StatusMessage}" Classes="muted" FontSize="12"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AppVersion, StringFormat='v{0}'}" Classes="muted" FontSize="11"/>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Width="90" Height="4"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Activity log -->
+        <Expander Grid.Row="3" Header="Activity" IsExpanded="False" Margin="20,0,20,6" FontSize="12">
+            <ListBox ItemsSource="{Binding Log}" MaxHeight="130" Background="Transparent" BorderThickness="0"
+                     FontFamily="Cascadia Mono,Consolas,monospace" FontSize="11"/>
+        </Expander>
+    </Grid>
+</Window>

@@ -1,0 +1,19 @@
+## .NET build output
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+.vs/
+
+## Test results
+TestResults/
+*.trx
+
+## Rider / VS Code
+.idea/
+.vscode/
+
+## OS noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,92 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SshKeyManager.ViewModels"
+        xmlns:models="using:SshKeyManager.Models"
+        x:Class="SshKeyManager.Views.GenerateKeyWindow"
+        x:DataType="vm:GenerateKeyViewModel"
+        Icon="/Assets/app.ico"
+        Width="580"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource CardBrush}"
+        Title="Create SSH key">
+    <Grid Margin="24" RowDefinitions="Auto,Auto,Auto" MaxHeight="760">
+        <StackPanel Spacing="3">
+            <TextBlock Text="Create a new SSH key" Classes="h1"/>
+            <TextBlock Text="{Binding FolderPath, StringFormat='Written to {0}'}" Classes="muted" FontSize="12"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="0,16,0,18" MaxHeight="540">
+            <StackPanel Spacing="12">
+
+                <StackPanel Spacing="4">
+                    <TextBlock Text="File name" Classes="section"/>
+                    <TextBox Text="{Binding Name}" PlaceholderText="id_ed25519"/>
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Algorithm" Classes="section"/>
+                        <ComboBox ItemsSource="{Binding Algorithms}"
+                                  SelectedItem="{Binding SelectedAlgorithm}"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:AlgorithmOption">
+                                    <TextBlock Text="{Binding Label}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4" IsEnabled="{Binding IsBitsEnabled}">
+                        <TextBlock Text="Key size (bits)" Classes="section"/>
+                        <ComboBox ItemsSource="{Binding BitsOptions}"
+                                  SelectedItem="{Binding SelectedBits}"
+                                  HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Comment" Classes="section"/>
+                    <TextBox Text="{Binding Comment}" PlaceholderText="you@example.com"/>
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Passphrase (optional)" Classes="section"/>
+                    <TextBlock Text="An empty passphrase creates an unprotected key."
+                               Classes="muted" FontSize="12"/>
+                    <TextBox Text="{Binding Passphrase}" PasswordChar="●"
+                             RevealPassword="{Binding ShowPassphrase}" PlaceholderText="Passphrase"/>
+                    <TextBox Text="{Binding ConfirmPassphrase}" PasswordChar="●"
+                             RevealPassword="{Binding ShowPassphrase}" PlaceholderText="Confirm passphrase"/>
+                    <CheckBox Content="Show passphrase" IsChecked="{Binding ShowPassphrase}"/>
+                </StackPanel>
+
+                <CheckBox Content="Load the key into ssh-agent after creating it"
+                          IsChecked="{Binding AddToAgent}"/>
+
+                <CheckBox Content="Overwrite the existing key with the same name"
+                          IsChecked="{Binding Overwrite}"
+                          IsVisible="{Binding NameTaken}"/>
+
+                <Border Background="{DynamicResource DangerSoftBrush}" CornerRadius="8" Padding="10"
+                        IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerBrush}"
+                               TextWrapping="Wrap" FontSize="12"/>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+            <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                       Text="Generated with the OpenSSH ssh-keygen tool."
+                       TextWrapping="Wrap"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Classes="ghost" Content="Cancel" Command="{Binding CancelCommand}" IsCancel="True"/>
+                <Button Classes="primary" Content="Create key" Command="{Binding CreateCommand}"
+                        IsEnabled="{Binding !IsBusy}" IsDefault="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

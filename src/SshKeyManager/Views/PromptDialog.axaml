@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SshKeyManager.Views.PromptDialog"
+        Icon="/Assets/app.ico"
+        Width="520"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource CardBrush}"
+        Title="SSH Key Manager">
+    <Grid Margin="24" RowDefinitions="Auto,Auto,Auto,Auto">
+        <TextBlock x:Name="TitleText" Classes="h1" TextWrapping="Wrap"/>
+        <TextBlock x:Name="MessageText" Grid.Row="1" Classes="muted" TextWrapping="Wrap"
+                   FontSize="13" LineHeight="19" Margin="0,10,0,0"/>
+        <TextBox x:Name="InputBox" Grid.Row="2" Margin="0,14,0,20" TextChanged="OnTextChanged"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Classes="ghost" Content="Cancel" Click="OnCancel" IsCancel="True"/>
+            <Button x:Name="ConfirmButton" Classes="primary" Content="OK" Click="OnConfirm" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

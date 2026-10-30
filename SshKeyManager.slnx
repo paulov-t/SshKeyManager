@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SshKeyManager/SshKeyManager.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SshKeyManager.Tests/SshKeyManager.Tests.csproj" />
+  </Folder>
+</Solution>
