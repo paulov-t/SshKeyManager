@@ -11,6 +11,7 @@ public static partial class SshConnectionTester
         ("GitHub", "git@github.com"),
         ("GitLab", "git@gitlab.com"),
         ("Bitbucket", "git@bitbucket.org"),
+        ("Azure DevOps", "git@ssh.dev.azure.com"),
         ("Codeberg", "git@codeberg.org")
     };
 
@@ -40,18 +41,43 @@ public static partial class SshConnectionTester
         var result = await ProcessRunner.RunAsync(
             SshTools.Ssh, arguments, timeoutMs: 30_000, cancellationToken: cancellationToken);
 
-        var output = result.Combined;
-        var success = result.ExitCode == 0 ||
-                      output.Contains("successfully authenticated", StringComparison.OrdinalIgnoreCase) ||
-                      output.Contains("Welcome to GitLab", StringComparison.OrdinalIgnoreCase);
+        return Interpret(target, keyPath, result.Combined, result.ExitCode, result.TimedOut);
+    }
 
-        var summary = FirstMeaningfulLine(output);
+    /// <summary>Classifies the output of an <c>ssh -T</c> attempt. Public so it can be unit tested.</summary>
+    public static ConnectionTestResult Interpret(
+        string target,
+        string keyPath,
+        string output,
+        int exitCode,
+        bool timedOut)
+    {
+        var isAzureDevOps =
+            target.Contains("ssh.dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
+            target.Contains("vs-ssh.visualstudio.com", StringComparison.OrdinalIgnoreCase);
+
+        // Azure DevOps has no interactive shell: after a successful login it answers with
+        // "remote: Shell access is not supported." and a non-zero exit code.
+        var shellBlocked = output.Contains("Shell access is not supported", StringComparison.OrdinalIgnoreCase);
+
+        var success = exitCode == 0 ||
+                      output.Contains("successfully authenticated", StringComparison.OrdinalIgnoreCase) ||
+                      output.Contains("Welcome to GitLab", StringComparison.OrdinalIgnoreCase) ||
+                      (isAzureDevOps && shellBlocked);
+
+        var summary = isAzureDevOps && shellBlocked
+            ? "Key accepted by Azure DevOps"
+            : FirstMeaningfulLine(output);
+
         if (success && summary.Length == 0)
             summary = "Authenticated successfully.";
 
         var details = success
-            ? $"The server accepted the key {Path.GetFileName(keyPath)}."
-            : BuildFailureHint(output, result.TimedOut);
+            ? isAzureDevOps && shellBlocked
+                ? "Azure DevOps accepted the key. The service does not offer shell access, so " +
+                  "\"Shell access is not supported\" is the expected response and means authentication worked."
+                : $"The server accepted the key {Path.GetFileName(keyPath)}."
+            : BuildFailureHint(output, timedOut);
 
         return new ConnectionTestResult(success, summary, details, output);
     }
@@ -61,7 +87,11 @@ public static partial class SshConnectionTester
         if (timedOut)
             return "The connection timed out. Check your network or the target host.";
 
-        if (output.Contains("Permission denied (publickey)", StringComparison.OrdinalIgnoreCase))
+        if (output.Contains("your SSH key has expired", StringComparison.OrdinalIgnoreCase))
+            return "The service reports that this SSH key has expired. Upload a new public key to your profile.";
+
+        if (output.Contains("Public key authentication failed", StringComparison.OrdinalIgnoreCase) ||
+            output.Contains("Permission denied", StringComparison.OrdinalIgnoreCase))
             return "The server rejected this key. Add the public key to your account on the target service, " +
                    "or add the key to ssh-agent if it is passphrase protected.";
 

@@ -15,7 +15,7 @@ app on Windows, Linux and macOS.
 | **Keys** | See every keypair in `~/.ssh` with algorithm, size, comment, SHA256 and MD5 fingerprints, file size and modification date. Orphan `.pub` files are listed too. |
 | **Create** | Generate Ed25519 (default), RSA (2048/3072/4096) or ECDSA (256/384/521) keys with a comment and an optional passphrase. Optionally load the new key into `ssh-agent`. |
 | **Public keys** | Copy the public key or fingerprint to the clipboard, or export the `.pub` file anywhere. |
-| **Test** | Run `ssh -T` against GitHub, GitLab, Bitbucket, Codeberg or a custom target using only the selected key, and see whether the remote accepted it. |
+| **Test** | Run `ssh -T` against GitHub, GitLab, Bitbucket, Azure DevOps, Codeberg or a custom target using only the selected key, and see whether the remote accepted it. Azure DevOps answers `remote: Shell access is not supported.` after a successful login, which the app reports as a successful authentication. |
 | **ssh-agent** | See which keys are loaded, add the selected key (passphrase is sent over stdin), remove it again, and start the Windows agent service with guidance if it is disabled. |
 | **SSH config** | Visual editor for `~/.ssh/config` host blocks: alias, host name, user, port, identity file and `IdentitiesOnly`. Unknown directives and comments are preserved, and every save keeps a timestamped backup. A raw text editor handles anything the form does not cover. |
 | **Backup / delete** | Create a timestamped zip of the whole `.ssh` folder on demand, and every deletion writes such a backup first. |
@@ -87,6 +87,10 @@ Or use the helper script:
   `ssh-agent`, the passphrase is written to `ssh-add`'s stdin and is never stored.
 - **Testing a key** uses `BatchMode=yes`, so it never blocks on a passphrase prompt. If the key
   is passphrase protected, load it into `ssh-agent` first.
+- **Azure DevOps** has no interactive shell. A successful `ssh -T` ends with
+  `remote: Shell access is not supported.` and a non-zero exit code; the app recognises this as
+  authentication success. Azure DevOps also accepts only the first key the client offers, so if
+  you use several keys for different organizations, give each one a `Host` alias in the config.
 - **ssh-agent passphrase forwarding** relies on `ssh-add` reading a redirected stdin, which it
   does when no terminal is attached. If your build of `ssh-add` refuses, the app shows the raw
   `ssh-add` error; run `ssh-add path\to\key` in a terminal instead.

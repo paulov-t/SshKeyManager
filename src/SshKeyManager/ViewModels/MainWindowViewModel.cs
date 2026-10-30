@@ -47,7 +47,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<string> Log { get; } = new();
     public ObservableCollection<string> IdentityOptions { get; } = new();
 
-    public IReadOnlyList<string> TestTargets { get; } = new[] { "GitHub", "GitLab", "Bitbucket", "Codeberg", "Custom…" };
+    public IReadOnlyList<string> TestTargets { get; } =
+        SshConnectionTester.Presets.Select(preset => preset.Label).Append("Custom…").ToList();
 
     public string AppVersion =>
         typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -234,14 +235,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private static string MapTarget(string selection, string custom)
     {
-        return selection switch
-        {
-            "GitHub" => "git@github.com",
-            "GitLab" => "git@gitlab.com",
-            "Bitbucket" => "git@bitbucket.org",
-            "Codeberg" => "git@codeberg.org",
-            _ => custom.Trim()
-        };
+        if (selection == "Custom…")
+            return custom.Trim();
+
+        var preset = SshConnectionTester.Presets.FirstOrDefault(p => p.Label == selection);
+        return string.IsNullOrEmpty(preset.Target) ? custom.Trim() : preset.Target;
     }
 
     private static bool ApplyThemeVariant(string theme)
