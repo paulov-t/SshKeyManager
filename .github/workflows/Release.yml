@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The key tests run real ssh-keygen commands. Hosted Ubuntu images normally
+      # include openssh-client, but slim/container images do not, so install it
+      # explicitly here.
+      - name: Install OpenSSH client (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-client
+
+      - name: Verify OpenSSH tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($tool in 'ssh-keygen', 'ssh-add', 'ssh') {
+            $command = Get-Command $tool -ErrorAction SilentlyContinue
+            if (-not $command) { throw "Missing OpenSSH tool: $tool" }
+            Write-Host "$tool -> $($command.Source)"
+          }
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release
+
+  build:
+    needs: test
+    name: Publish (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    env:
+      DeploymentDirectory: deployment
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+            
+    - name: Setup .NET 10.0
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Get build date
+      id: build
+      shell: pwsh
+      run: |
+        $CurrentTime = Get-Date -Format 'yyMM'
+        $BuildTime = Get-Date -Format 'ddHH'
+        Write-Output "NOW=$CurrentTime" >> $env:GITHUB_OUTPUT
+        Write-Output "VERSION=$BuildTime" >> $env:GITHUB_OUTPUT 
+
+    - name: Restore dependencies
+      run: dotnet restore -p:EnableWindowsTargeting=true
+
+    - name: Install Avalonia
+      run: dotnet new install Avalonia.Templates
+
+    - name: Build Published FMT
+      run: dotnet publish src/SshKeyManager/SshKeyManager.csproj -c Release -r ${{ matrix.os }} -p:EnableWindowsTargeting=true -p:BuildNumber=${{ steps.build.outputs.NOW }} -p:RevisionNumber=${{ steps.build.outputs.VERSION }} -o ${{ env.DeploymentDirectory }}/SshKeyManager
+
+    - name: Upload Artifact
+      id: artifact-upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}
+        path: ${{ env.DeploymentDirectory }}
+        if-no-files-found: error
+        retention-days: 1
+
+  release:
+    needs: build
+    name: Deploy (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Get Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: SshKeyManager
+
+      ## The set-output is deprecated but my small brain doesnt know why the new GITHUB_OUTPUT doesn't work 
+      - name: Get version from DLL
+        id: extract-version
+        run: |
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("SshKeyManager\\SshKeyManager\\SshKeyManager.exe").ProductVersion
+          echo "::set-output name=VERSION::$version"
+          echo "{VERSION}={$version}" >> $GITHUB_OUTPUT
+
+      - name: Delete pdb
+        run: |
+          cd FMT
+          ls *.pdb -Recurse | foreach {rm $_}
+          cd ..
+
+      - name: Zip Artifact
+        run: |
+          cd FMT
+          Get-ChildItem -Path "" -Recurse
+          $currentPath=$pwd.Path
+          Compress-Archive -Path $currentPath -DestinationPath ../SshKeyManager-${{ steps.extract-version.outputs.VERSION }}.zip
+          cd ..
+                              
+      - name: Generate Release Draft
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            SshKeyManager-${{ steps.extract-version.outputs.VERSION }}.zip
+          tag_name: FMT-${{ steps.extract-version.outputs.VERSION }}
