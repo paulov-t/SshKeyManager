@@ -187,7 +187,7 @@ public sealed partial class SshKeyService
         CancellationToken cancellationToken = default)
     {
         if (SshTools.Keygen is null)
-            throw new InvalidOperationException("ssh-keygen was not found. Install the OpenSSH client first.");
+            throw new InvalidOperationException("ssh-keygen was not found. " + SshTools.InstallHint);
 
         LastGenerationWarning = null;
 

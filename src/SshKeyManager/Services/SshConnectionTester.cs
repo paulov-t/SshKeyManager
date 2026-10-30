@@ -22,7 +22,7 @@ public static partial class SshConnectionTester
     {
         if (SshTools.Ssh is null)
             return new ConnectionTestResult(false, "OpenSSH not found",
-                "ssh.exe was not found on this machine. Install the OpenSSH client to test connections.", string.Empty);
+                "ssh was not found. " + SshTools.InstallHint, string.Empty);
 
         if (string.IsNullOrWhiteSpace(target))
             return new ConnectionTestResult(false, "No target", "Enter a target such as git@github.com.", string.Empty);

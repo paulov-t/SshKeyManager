@@ -26,6 +26,8 @@ app on Windows, Linux and macOS.
 - **.NET 10 SDK** to build, or a published build to run.
 - **OpenSSH client** (`ssh-keygen`, `ssh-add`, `ssh`) on `PATH`.
   - Windows: Settings → System → Optional features → *OpenSSH Client*.
+  - Debian/Ubuntu: `sudo apt-get install -y openssh-client`.
+  - macOS: preinstalled (`/usr/bin/ssh-keygen`).
 - **ssh-agent** is optional. On Windows it is the *OpenSSH Authentication Agent* service:
 
   ```powershell
@@ -70,6 +72,36 @@ Or use the helper script:
 ```powershell
 ./publish.ps1                 # framework-dependent -> artifacts/publish
 ./publish.ps1 -SelfContained  # single-file win-x64  -> artifacts/win-x64
+```
+
+## Continuous integration
+
+The key tests run the real `ssh-keygen` binary, so the CI image needs the OpenSSH client.
+The included workflow (`.github/workflows/ci.yml`) installs it on Linux and verifies it on
+Windows before running `dotnet test`.
+
+For other CI systems:
+
+| Runner | Install |
+| --- | --- |
+| Ubuntu / Debian | `sudo apt-get update && sudo apt-get install -y openssh-client` |
+| Alpine | `apk add --no-cache openssh-client` |
+| Fedora / RHEL | `sudo dnf install -y openssh-clients` |
+| macOS | preinstalled (`/usr/bin/ssh-keygen`) |
+| Windows | Usually preinstalled — verify with `Get-Command ssh-keygen` |
+
+If your job uses a `container:` image, install OpenSSH inside that container rather than on the
+host runner.
+
+Tool discovery is platform aware: it checks `PATH`, then standard install locations
+(`/usr/bin`, `/usr/local/bin`, `/bin`, `/opt/homebrew/bin`, `%WINDIR%\System32\OpenSSH`,
+Git for Windows, …), using `ssh-keygen.exe` on Windows and `ssh-keygen` elsewhere. For unusual
+installations, override each binary explicitly:
+
+```bash
+export SSHKEYMANAGER_SSH_KEYGEN=/opt/openssh/bin/ssh-keygen
+export SSHKEYMANAGER_SSH_ADD=/opt/openssh/bin/ssh-add
+export SSHKEYMANAGER_SSH=/opt/openssh/bin/ssh
 ```
 
 ## Safety notes

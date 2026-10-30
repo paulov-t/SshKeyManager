@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The key tests run real ssh-keygen commands. Hosted Ubuntu images normally
+      # include openssh-client, but slim/container images do not, so install it
+      # explicitly here.
+      - name: Install OpenSSH client (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-client
+
+      - name: Verify OpenSSH tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($tool in 'ssh-keygen', 'ssh-add', 'ssh') {
+            $command = Get-Command $tool -ErrorAction SilentlyContinue
+            if (-not $command) { throw "Missing OpenSSH tool: $tool" }
+            Write-Host "$tool -> $($command.Source)"
+          }
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release
